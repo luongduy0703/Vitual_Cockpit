@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,8 +12,8 @@ using System.Net.Sockets;
 
 public class Communication : MonoBehaviour
 {
-    [SerializeField] private string _hostname;
-    [SerializeField] private int _port;
+    [SerializeField] private string _hostname = "192.168.50.1";
+    [SerializeField] private int _port = 14550;
     [SerializeField] private Telemetry telemetry;
 
     public delegate void DelegateState(Uavlink_msg_state_t tele);
@@ -201,35 +201,68 @@ public class Communication : MonoBehaviour
         get { return _longdist; }
     }
 
-    void Start()
+void Start()
+{
+    // KÍCH HOẠT KẾT NỐI ROS-TCP-CONNECTOR (ROS2 mode via Reflection để tránh lỗi CS0246)
+    try
     {
-        //telemetry = GetComponent<Telemetry>();
-        var communicationObj = GameObject.FindGameObjectWithTag("Communication");
-        if (communicationObj == null)
+        var rosType = System.Type.GetType("Unity.Robotics.ROSTCPConnector.ROSConnection, Unity.Robotics.ROSTCPConnector");
+        if (rosType != null)
         {
-            Debug.LogError("Communication GameObject not found. Please check the tag.");
-            enabled = false;
-            return;
-        }
+            var method = rosType.GetMethod("GetOrCreateInstance", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            var rosInstance = method?.Invoke(null, null);
 
-        // Find Telemetry as a child of Communication
-        var telemetryTransform = communicationObj.transform.Find("Telemetry");
-        if (telemetryTransform == null)
+            if (rosInstance != null)
+            {
+                // Cập nhật IP, Port và tắt ConnectOnStart (vì project dùng custom UDP)
+                var ipField = rosType.GetField("rosIPAddress");
+                var portField = rosType.GetField("rosPort");
+                var connectOnStartProp = rosType.GetProperty("ConnectOnStart");
+                
+                ipField?.SetValue(rosInstance, _hostname);
+                portField?.SetValue(rosInstance, _port);
+                connectOnStartProp?.SetValue(rosInstance, false);
+
+                Debug.Log($"[ROS 2] Initialized ROS-TCP-Connector package (ROS2 mode)");
+            }
+        }
+        else
         {
-            Debug.LogError("Telemetry child not found under Communication GameObject.");
-            enabled = false;
-            return;
+            Debug.LogWarning("[ROS 2] Could not find ROSConnection class. Please check ROS-TCP-Connector package.");
         }
-
-        telemetry = telemetryTransform.GetComponent<Telemetry>();
-        if (telemetry == null)
-        {
-            Debug.LogError("Telemetry component not found on Telemetry GameObject.");
-            enabled = false;
-            return;
-        }
-
     }
+    catch (System.Exception ex)
+    {
+        Debug.LogError($"[ROS 2] Init Error: {ex.Message}");
+    }
+
+    // Tự động kết nối UDP sang Raspberry Pi khi app vừa mở
+    StartUDP();
+
+    var communicationObj = GameObject.FindGameObjectWithTag("Communication");
+    if (communicationObj == null)
+    {
+        Debug.LogError("Communication GameObject not found. Please check the tag.");
+        enabled = false;
+        return;
+    }
+
+    var telemetryTransform = communicationObj.transform.Find("Telemetry");
+    if (telemetryTransform == null)
+    {
+        Debug.LogError("Telemetry child not found under Communication GameObject.");
+        enabled = false;
+        return;
+    }
+
+    telemetry = telemetryTransform.GetComponent<Telemetry>();
+    if (telemetry == null)
+    {
+        Debug.LogError("Telemetry component not found on Telemetry GameObject.");
+        enabled = false;
+        return;
+    }
+}
 
     void Update()
     {
@@ -238,6 +271,7 @@ public class Communication : MonoBehaviour
     /***********************************************************
      ************************ UDP Manager *********************
      ***********************************************************/
+    [ContextMenu("TEST: Start UDP Connection")]
     public void StartUDP()
     {
         if (_connect != null && _connect.IsOpen)
@@ -246,7 +280,9 @@ public class Communication : MonoBehaviour
             return;
         }
 
-        _connect = new UdpConnect(_hostname, _port);
+        string targetHost = string.IsNullOrEmpty(_hostname) || _hostname == "127.0.0.1" ? "192.168.50.1" : _hostname;
+        Debug.Log($"[UDP CONNECT] Connecting to {targetHost}:{_port}...");
+        _connect = new UdpConnect(targetHost, _port);
         _connect.DoConnect();
 
         if (_connect.IsOpen)
@@ -554,6 +590,87 @@ public class Communication : MonoBehaviour
         SendMessage(message);
         Debug.Log("Set mode command sent.");
     }
+    [ContextMenu("TEST: Send ARM Command")]
+    public void TestSendArm()
+    {
+        if (_connect == null || !_connect.IsOpen)
+        {
+            Debug.LogWarning("[TEST ARM] UDP is NOT started yet! Please run 'TEST: Start UDP Connection' first.");
+            return;
+        }
+        Debug.Log("[TEST ARM] Sending ARM command (1) via UDP...");
+        SendCommandArmDisarm(1);
+    }
+
+    [ContextMenu("TEST: Send DISARM Command")]
+    public void TestSendDisarm()
+    {
+        if (_connect == null || !_connect.IsOpen)
+        {
+            Debug.LogWarning("[TEST DISARM] UDP is NOT started yet! Please run 'TEST: Start UDP Connection' first.");
+            return;
+        }
+        Debug.Log("[TEST DISARM] Sending DISARM command (0) via UDP...");
+        SendCommandArmDisarm(0);
+    }
+
+    [ContextMenu("TEST: Send Manual Control (Joystick)")]
+    public void TestSendManualControl()
+    {
+        if (_connect == null || !_connect.IsOpen)
+        {
+            Debug.LogWarning("[TEST MANUAL] UDP is NOT started yet! Please run 'TEST: Start UDP Connection' first.");
+            return;
+        }
+        Debug.Log("[TEST MANUAL] Sending Manual Control (Roll=200, Pitch=100, Throttle=500, Yaw=50) via UDP...");
+        if (telemetry != null)
+        {
+            telemetry.TeleVxControl = 200;
+            telemetry.TeleVyControl = 100;
+            telemetry.TeleVzControl = 500;
+            telemetry.TeleYawRateControl = 50;
+        }
+        HandlePosctlControl();
+    }
+
+    [ContextMenu("TEST: Send Velocity Control")]
+    public void TestSendVelocityControl()
+    {
+        if (_connect == null || !_connect.IsOpen)
+        {
+            Debug.LogWarning("[TEST VELOCITY] UDP is NOT started yet! Please run 'TEST: Start UDP Connection' first.");
+            return;
+        }
+        Debug.Log("[TEST VELOCITY] Sending Velocity Control (Vx=0.5, Vy=0.2, Vz=0.0) via UDP...");
+        if (telemetry != null)
+        {
+            telemetry.VelX = 0.5f;
+            telemetry.VelY = 0.2f;
+            telemetry.VelZ = 0.0f;
+            telemetry.VelYawRate = 0.1f;
+        }
+        SendVelocityControl();
+    }
+
+    [ContextMenu("TEST: Send Servo Control (Robotic Arm)")]
+    public void TestSendServoControl()
+    {
+        if (_connect == null || !_connect.IsOpen)
+        {
+            Debug.LogWarning("[TEST SERVO] UDP is NOT started yet! Please run 'TEST: Start UDP Connection' first.");
+            return;
+        }
+        Debug.Log("[TEST SERVO] Sending Servo Control (Base=90, Shoulder=45, Elbow=30, Wrist=120) via UDP...");
+        if (telemetry != null)
+        {
+            telemetry.BaseSV = 90f;
+            telemetry.ShoulderSV = 45f;
+            telemetry.ElbowSV = 30f;
+            telemetry.WristSV = 120f;
+        }
+        HandleServoControl();
+    }
+
     public Task<Tuple<bool, string>> SendCommandArmDisarm(byte armdisarm)
     {
         Func<Tuple<bool, string>> sendCommand = () =>

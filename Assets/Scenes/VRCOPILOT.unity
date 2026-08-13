@@ -2204,7 +2204,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114949350411584270, guid: d704fe1266adf446ebcfa350586e1bc7, type: 3}
       propertyPath: InitialUrl
-      value: http://192.168.11.1:8080/stream?topic=/usb_camera/image_raw
+      value: http://192.168.50.1:8080/stream?topic=/usb_camera/image_raw
       objectReference: {fileID: 0}
     - target: {fileID: 114949350411584270, guid: d704fe1266adf446ebcfa350586e1bc7, type: 3}
       propertyPath: ClickingEnabled
@@ -6160,7 +6160,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114949350411584270, guid: d704fe1266adf446ebcfa350586e1bc7, type: 3}
       propertyPath: InitialUrl
-      value: http://192.168.11.1:8080/stream?topic=/main_camera/image_raw
+      value: http://192.168.50.1:8080/stream?topic=/main_camera/image_raw
       objectReference: {fileID: 0}
     - target: {fileID: 114949350411584270, guid: d704fe1266adf446ebcfa350586e1bc7, type: 3}
       propertyPath: InitialResolution
@@ -22339,8 +22339,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 096488f1bb05fb944b6e17ea12fe3470, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _hostname: 192.168.11.1
-  _port: 12345
+  _hostname: 127.0.0.1
+  _port: 14551
   telemetry: {fileID: 1286338816}
   _isManualControlActive: 0
   _isAltctlControlActive: 0

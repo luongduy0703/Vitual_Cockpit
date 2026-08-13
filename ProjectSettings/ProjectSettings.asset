@@ -711,8 +711,8 @@ PlayerSettings:
   webGLThreadsSupport: 0
   webGLDecompressionFallback: 0
   scriptingDefineSymbols:
-    Android: VUPLEX_CCU
-    Standalone: VUPLEX_CCU
+    Android: VUPLEX_CCU;ROS2
+    Standalone: VUPLEX_CCU;ROS2
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:

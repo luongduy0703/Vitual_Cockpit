@@ -13,8 +13,8 @@ This project provides a VR-based control interface for Unmanned Aerial Vehicles 
 
 ### UAV Configuration
 
-- **Middleware:** ROS 1 (Noetic) - Clover custom.
-- **OS:** [Clover OS](https://www.google.com/search?q=https://clover.coex.tech/en/os.html) (running on Raspberry Pi).
+- **Middleware:** ROS 2 (Humble Hawksbill).
+- **OS:** Ubuntu 22.04 Server (running on Raspberry Pi 4).
 
 ## 2. Installation & Setup
 
@@ -32,6 +32,37 @@ git clone git@github.com:EmNetLab411/Virtual-Copilot-UAM.git
 2. Unity Hub will automatically prompt you to install the required Unity Editor version. Please allow it to finish.
 3. Once the project is open, go to **File > Build Settings**.
 4. Select **Android** from the platform list and click **Switch Platform**.
+5. Verify ROS2 mode: go to **Robotics > ROS Settings** and confirm **Protocol** is set to **ROS2**.
+
+### Raspberry Pi Setup (ROS2 Humble)
+
+1. Flash **Ubuntu 22.04 Server ARM64** onto the Raspberry Pi's SD card.
+2. Install ROS 2 Humble:
+
+```bash
+sudo apt update && sudo apt install -y locales software-properties-common curl
+sudo locale-gen en_US en_US.UTF-8
+sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+  -o /usr/share/keyrings/ros-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+  http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
+  | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+sudo apt update
+sudo apt install -y ros-humble-ros-base python3-colcon-common-extensions
+echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+```
+
+3. Build the ROS2 workspace:
+
+```bash
+# Navigate to the workspace included in the cloned project:
+cd ~/Virtual-Copilot-UAM/ros2_ws
+colcon build
+source install/setup.bash
+```
 
 ## 3. Deployment (Build to Android)
 
@@ -61,27 +92,46 @@ Run the following commands in separate terminals:
 
 **Terminal 1: Start UDP Server**
 
-Bash
-
-```
-rosrun wicom_udp UdpServer _alt_hold/enable:=true _alt_hold/target_z:=0.8 _alt_hold/kp:=1.0 _alt_hold/kd:=0.6 _alt_hold/max_vz:=0.5 vx_override/enable:=false
+```bash
+ros2 launch wicom_udp_ros2 wicom_udp.launch.py
 ```
 
-*Alternatively, use the launch file:*
+*Or run directly with parameters:*
 
-Bash
-
-```
-roslaunch wicom_udp wicom_udp.launch
+```bash
+ros2 run wicom_udp_ros2 udp_server_node --ros-args \
+  -p alt_hold.enable:=true \
+  -p alt_hold.target_z:=0.8 \
+  -p alt_hold.kp:=1.0 \
+  -p alt_hold.kd:=0.6 \
+  -p alt_hold.max_vz:=0.5 \
+  -p vx_override.enable:=false
 ```
 
 **Terminal 2: Start Robotic Arm Control**
 
-Bash
+```bash
+ros2 launch wicom_roboarm_ros2 wicom_roboarm.launch.py
+```
 
-```
-roslaunch wicom_roboarm wicom_roboarm.launch
-```
+### Quick Local Testing (PC / Linux Simulation)
+
+To test the system locally without a physical drone or phone:
+
+1. **Start ROS 2 Node locally:**
+   ```bash
+   cd ~/Virtual-Copilot-UAM/ros2_ws
+   colcon build && source install/setup.bash
+   ros2 launch wicom_udp_ros2 wicom_udp.launch.py
+   ```
+2. **Run Unity Play Mode:**
+   - Open Unity Editor, select `Communication` GameObject.
+   - Set Hostname = `127.0.0.1`, Port = `14550`.
+   - Press **Play**, right-click `Communication (Script)` in Inspector and select **`TEST: Start UDP Connection`**, then **`TEST: Send ARM Command`**.
+3. **Verify Topics via ROS 2 CLI:**
+   ```bash
+   ros2 topic echo /wicom/cmd/arm
+   ```
 
 ## 5. VR App Interaction Guide
 

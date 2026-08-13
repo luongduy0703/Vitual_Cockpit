@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>wicom_roboarm_ros2</name>
+  <version>1.0.0</version>
+  <description>
+    Robotic Arm Control node for Virtual-Copilot-UAM.
+    Receives servo angle commands from the UDP server node
+    and drives the robotic arm servos via I2C/GPIO.
+    
+    Migrated from ROS1 (wicom_roboarm) to ROS2 Humble.
+  </description>
+  <maintainer email="emnetlab411@example.com">EmNetLab411</maintainer>
+  <license>MIT</license>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <exec_depend>ros2launch</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
