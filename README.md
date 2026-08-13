@@ -23,7 +23,7 @@ This project provides a VR-based control interface for Unmanned Aerial Vehicles 
 Open terminal and run:
 
 ```
-git clone git@github.com:EmNetLab411/Virtual-Copilot-UAM.git
+git clone 
 ```
 
 ### Unity Project Configuration
