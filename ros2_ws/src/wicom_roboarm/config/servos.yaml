@@ -1,0 +1,49 @@
+wicom_roboarm_unified:
+  ros__parameters:
+    # ── I2C / PCA9685 ──
+    i2c_bus: 1
+    i2c_address: "0x40"
+    pwm_frequency_hz: 50.0
+    oscillator_hz: 25000000
+    use_mux: false            # PCA9685 wired directly to RPi4 I2C-1
+
+    # ── Behavior ──
+    enable_on_start: true
+    command_timeout_sec: 1.0
+    timeout_behavior: "hold"
+    shutdown_behavior: "off"
+
+    # ── Global pulse defaults (fallback if per-joint arrays missing) ──
+    pulse_us_min: 500.0
+    pulse_us_max: 2500.0
+    period_us: 20000.0        # 20ms = 50Hz
+
+    # ── Joint → Channel mapping ──
+    # J1 Base        : TD-8120MG  → CH0
+    # J2 Shoulder    : TD-8120MG  → CH1  (single servo, no mirror)
+    # J3 Elbow       : MG996R     → CH2
+    # J4 Wrist Roll  : MG90S      → CH3
+    # J5 Wrist Pitch : MG90S      → CH4
+    # J6 Pen/Gripper : MG90S      → CH5
+    joint_names: ["base", "shoulder", "elbow", "wrist_roll", "wrist_pitch", "pen"]
+    channels:    [0, 1, 2, 3, 4, 5]
+
+    # ── Per-joint pulse calibration (µs) ──
+    # TD-8120MG (digital): full 500-2500 is safe
+    # MG996R   (analog) : 600-2400 conservative to avoid end-stop buzz
+    # MG90S    (micro)  : 600-2400 conservative for micro mechanism
+    pulse_us_min_by_joint: [500.0, 500.0, 500.0, 600.0, 600.0, 600.0]
+    pulse_us_max_by_joint: [2500.0, 2500.0, 2500.0, 2400.0, 2400.0, 2400.0]
+
+    # ── Neutral / Limits ──
+    neutral_deg: 90.0
+    neutral_deg_by_joint: [90.0, 90.0, 90.0, 90.0, 90.0, 90.0]
+
+    limits_min_deg_by_joint: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    limits_max_deg_by_joint: [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+
+    publish_rate_hz: 25.0
+    trajectory_update_rate_hz: 50.0
+    trajectory_profile: "min_jerk"
+    default_moving_time_sec: 0.2
+    command_deadband_deg: 0.0
