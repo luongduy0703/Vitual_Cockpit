@@ -1,144 +1,264 @@
 # Virtual Copilot for UAM
 
-This project provides a VR-based control interface for Unmanned Aerial Vehicles (UAVs) equipped with robotic arms, utilizing Unity for the VR environment and ROS for drone communication.
-
-## 1. System Requirements
-
-### Development Environment (PC/Laptop)
-
-- **Operating System:** Windows 10 or Windows 11.
-- **Software:** 
-  - [Unity Hub](https://unity.com/download)
-  - Visual Studio
-
-### UAV Configuration
-
-- **Middleware:** ROS 2 (Humble Hawksbill).
-- **OS:** Ubuntu 22.04 Server (running on Raspberry Pi 4).
-
-## 2. Installation & Setup
-
-### Clone the Repository
-
-Open terminal and run:
+A VR control interface for a UAV-mounted robotic arm. The operator wears a
+Cardboard-style headset, draws in the air with a bare hand, and a 6-DOF arm on
+the aircraft follows the fingertip in real time. Live camera feeds from the
+aircraft are shown on floating screens inside the headset.
 
 ```
-git clone 
+[Android phone + Cardboard headset]
+  rear camera → hand tracking → "Point" gesture
+       ↓ projected onto a virtual drawing board → (u, v)
+  Unity: map to robot space → inverse kinematics → 4 joint angles
+       ↓ UAVLink binary message 0x0D (20 bytes), UDP port 14551
+[Raspberry Pi 4 — Ubuntu 22.04 — ROS 2 Humble]
+  udp_server_node    decode → /wicom/servo_control
+  servo_bridge_node  calibration → /pca9685_servo/command
+  wicom_roboarm      trajectory interpolation → I2C
+       ↓
+[PCA9685] → 6 PWM channels → servos
+
+  usb_cam ×2 → web_video_server (MJPEG, port 8080) → screens in VR
 ```
 
-### Unity Project Configuration
+## 1. Requirements
 
-1. Launch **Unity Hub** and click **Open** to select the `Virtual-Copilot-UAM` folder.
-2. Unity Hub will automatically prompt you to install the required Unity Editor version. Please allow it to finish.
-3. Once the project is open, go to **File > Build Settings**.
-4. Select **Android** from the platform list and click **Switch Platform**.
-5. Verify ROS2 mode: go to **Robotics > ROS Settings** and confirm **Protocol** is set to **ROS2**.
+| Side | Requirement |
+|---|---|
+| Development PC | Windows 10/11, [Unity Hub](https://unity.com/download) + Unity **2021.3.4f1** with Android Build Support |
+| Headset | Any Cardboard-style viewer |
+| Phone | Android with gyroscope and a rear camera (hand tracking uses the rear camera) |
+| Onboard computer | Raspberry Pi 4, **64-bit** Ubuntu 22.04 Server, ROS 2 Humble |
+| Arm electronics | PCA9685 16-channel PWM board on I2C bus 1 (address 0x40), separate 5–6 V ≥ 5 A servo supply |
+| Cameras | Up to two USB UVC cameras |
 
-### Raspberry Pi Setup (ROS2 Humble)
+> The Pi must be 64-bit arm64. ROS 2 Humble has no apt packages for 32-bit
+> armhf, so a Raspberry Pi OS image will not work.
 
-1. Flash **Ubuntu 22.04 Server ARM64** onto the Raspberry Pi's SD card.
-2. Install ROS 2 Humble:
+## 2. Repository layout
+
+```
+Assets/Script/
+  RoboticArmControl/SimpleDrawingCanvas.cs   hand → UV → IK → joint angles
+  RoboticArmControl/DrawingBoardPlacer.cs    puts the board within arm's reach in VR
+  CameraStream/MjpegStreamViewer.cs          MJPEG viewer (works in Editor and on device)
+  Communication/                             UAVLink protocol + UDP client
+  CanvasManager/                             in-VR buttons
+  SpeechControl/                             Vietnamese voice commands
+
+ros2_ws/src/
+  wicom_udp_ros2/        UDP ↔ ROS 2 bridge, decodes UAVLink
+  wicom_roboarm_ros2/    servo bridge, calibration config, bench tools
+  wicom_roboarm/         arm hardware driver (lives on the Pi, not in this repo)
+
+ros2_ws/scripts/         setup_pi_ubuntu.sh · deploy_to_pi.sh · check_pi.sh
+ros2_ws/systemd/         auto-start services
+```
+
+## 3. First-time setup
+
+### 3.0 Get the code
 
 ```bash
-sudo apt update && sudo apt install -y locales software-properties-common curl
-sudo locale-gen en_US en_US.UTF-8
-sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
-
-sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
-  -o /usr/share/keyrings/ros-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
-  http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
-  | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
-
-sudo apt update
-sudo apt install -y ros-humble-ros-base python3-colcon-common-extensions
-echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+git clone https://github.com/luongduy0703/Vitual_Cockpit.git
+cd Vitual_Cockpit
 ```
 
-3. Build the ROS2 workspace:
+The repository holds both sides of the system: the Unity project under
+`Assets/`, and the ROS 2 packages under `ros2_ws/`. Only the ROS 2 packages are
+deployed to the Pi — see §3.2.
+
+### 3.1 Raspberry Pi
 
 ```bash
-# Navigate to the workspace included in the cloned project:
-cd ~/Virtual-Copilot-UAM/ros2_ws
-colcon build
-source install/setup.bash
+# From the development PC
+scp ros2_ws/scripts/setup_pi_ubuntu.sh ros2_ws/scripts/check_pi.sh <user>@<pi-address>:~
+
+# On the Pi — installs ROS 2 Humble, enables I2C, installs servo libraries
+bash setup_pi_ubuntu.sh
+sudo reboot
 ```
 
-## 3. Deployment (Build to Android)
-
-1. Enable **Developer Mode** and **USB Debugging** on your Android smartphone.
-2. Connect the smartphone to your PC/Laptop via a USB cable.
-3. In Unity, navigate to **File > Build and Run**.
-4. Wait for the APK to build and install automatically on your device.
-
-## 4. Testing & Execution
-
-### Connection Setup
-
-1. Connect your Android phone to the drone's Wi-Fi access point:
-   - **SSID:** `Clover-xxxx`
-   - **Password:** `cloverwifi`
-2. Launch the **VR app** on your phone.
-   - **Status Check:** If the video stream is not visible, verify the IP address settings in the **Communication Setup** section of the app.
-
-### Drone-side Configuration (SSH)
-
-Access the drone's onboard computer (Raspberry Pi) via SSH:
-
-- **Command:** `ssh pi@192.168.11.1`
-- **Password:** `1`
-
-Run the following commands in separate terminals:
-
-**Terminal 1: Start UDP Server**
+After rebooting, confirm the environment is complete:
 
 ```bash
-ros2 launch wicom_udp_ros2 wicom_udp.launch.py
+bash check_pi.sh
 ```
 
-*Or run directly with parameters:*
+It reports OS, architecture, ROS distro, I2C, PCA9685 detection, user groups,
+network and workspace state, ending with a pass/warn/fail count. Fix every
+`[FAIL]` before continuing.
+
+### 3.2 Deploy the ROS 2 packages
 
 ```bash
-ros2 run wicom_udp_ros2 udp_server_node --ros-args \
-  -p alt_hold.enable:=true \
-  -p alt_hold.target_z:=0.8 \
-  -p alt_hold.kp:=1.0 \
-  -p alt_hold.kd:=0.6 \
-  -p alt_hold.max_vz:=0.5 \
-  -p vx_override.enable:=false
+# On the development PC
+bash ros2_ws/scripts/deploy_to_pi.sh <user>@<pi-address>
 ```
 
-**Terminal 2: Start Robotic Arm Control**
+The script backs up the existing packages on the Pi, syncs **only**
+`wicom_udp_ros2` and `wicom_roboarm_ros2`, and rebuilds just those two — other
+packages in the Pi's workspace are left untouched.
+
+### 3.3 Calibrate the arm
+
+Do this before the first powered run, with the servo horns detached.
 
 ```bash
-ros2 launch wicom_roboarm_ros2 wicom_roboarm.launch.py
+# 1. Find which servo is on which PCA9685 channel
+python3 ~/ros2_ws/src/wicom_roboarm_ros2/wicom_roboarm_ros2/channel_test.py --scan
+
+# 2. Record the mapping in the driver config
+nano ~/ros2_ws/src/wicom_roboarm/config/servos.yaml     # joint_names / channels
+
+# 3. Jog each joint, mark where it is aligned, read off the offsets
+ros2 run wicom_roboarm_ros2 arm_jog
 ```
 
-### Quick Local Testing (PC / Linux Simulation)
+`arm_jog` is an interactive console: type an angle, nudge with `+5`/`-5`, type
+`mark` when the joint is physically straight, then `table` to print the
+calibration ready to paste into `servo_bridge.yaml`.
 
-To test the system locally without a physical drone or phone:
+Unity expresses the fully extended pose as `(base 90, shoulder 90, elbow 180,
+wrist 150)`. If the hardware is mounted so that 90° on every servo is the
+straight pose, the resulting offsets are `[0, 0, -90, -60, 0]`.
 
-1. **Start ROS 2 Node locally:**
-   ```bash
-   cd ~/Virtual-Copilot-UAM/ros2_ws
-   colcon build && source install/setup.bash
-   ros2 launch wicom_udp_ros2 wicom_udp.launch.py
-   ```
-2. **Run Unity Play Mode:**
-   - Open Unity Editor, select `Communication` GameObject.
-   - Set Hostname = `127.0.0.1`, Port = `14550`.
-   - Press **Play**, right-click `Communication (Script)` in Inspector and select **`TEST: Start UDP Connection`**, then **`TEST: Send ARM Command`**.
-3. **Verify Topics via ROS 2 CLI:**
-   ```bash
-   ros2 topic echo /wicom/cmd/arm
-   ```
+### 3.4 Unity
 
-## 5. VR App Interaction Guide
+Open the project with Unity **2021.3.4f1**, load `Assets/Scenes/VRCOPILOT.unity`
+and check these values on two objects:
 
-| **Action**               | **Execution**                             | **Expected Result**                              |
-| ------------------------ | ----------------------------------------- | ------------------------------------------------ |
-| **Establish Connection** | Tap the "Connect" button in 3D space      | Signal returns `True` (Green indicator)          |
-| **Voice Command**        | Say **"Kết nối"**                         | Signal returns `True`                            |
-| **Enable Drawing**       | Tap "Show Draw" in 3D space               | The Draw Area appears                            |
-| **Control Arm**          | Draw in the air with your hand/controller | The Robotic Arm mimics the movement in real-time |
+| GameObject | Field | Meaning |
+|---|---|---|
+| `Communication` | `_hostname` | IP address of the Pi |
+| `Communication` | `_port` | UDP port, must match the bridge (default 14551) |
+| `DrawingCanvas` | `L1_cm` | shoulder → elbow length |
+| `DrawingCanvas` | `L2_cm` | elbow → wrist length |
+| `DrawingCanvas` | `L3_cm` | wrist → pen tip length |
+| `DrawingCanvas` | `zPlane_cm` | distance from the arm base to the drawing plane |
 
+`zPlane_cm` **must be smaller than `L1+L2+L3`**. Set it larger and the
+workspace calculation collapses to zero: the app keeps sending commands, the
+logs stay clean, and the arm never moves. The last number on the in-VR
+`ServoDisplay` panel is the computed workspace size — it must not be `0.0`.
+
+Then `File → Build Settings → Android → Build`, and install the APK:
+
+```bash
+adb install -r VRCopilot.apk
+```
+
+## 4. Running
+
+Start the Pi first — the nodes must be listening before the app sends anything.
+
+```bash
+# Terminal 1 — arm driver
+ros2 launch wicom_roboarm wicom_roboarm.launch.py
+
+# Terminal 2 — UDP bridge + servo bridge
+ros2 launch wicom_roboarm_ros2 wicom_arm_full.launch.py
+
+# Terminal 3 — cameras (optional)
+ros2 launch wicom_roboarm_ros2 wicom_cameras.launch.py
+
+# Terminal 4 — move the arm to its rest pose before opening the app
+ros2 topic pub --once /pca9685_servo/command sensor_msgs/msg/JointState \
+  "{name: ['base','shoulder','elbow','wrist_roll','wrist_pitch','pen'], \
+    position: [90.0,90.0,90.0,90.0,90.0,90.0]}"
+```
+
+Then on the phone: join the aircraft's Wi-Fi, open the app, grant camera
+permission, tap **Show Draw**, insert the phone into the headset, and point
+with one index finger over the virtual board.
+
+Keep an emergency stop ready in a spare terminal:
+
+```bash
+python3 ~/ros2_ws/src/wicom_roboarm/scripts/pca9685_kill_all.py
+```
+
+To start everything automatically at boot instead:
+
+```bash
+bash ~/ros2_ws/systemd/install_service.sh
+```
+
+## 5. Tuning
+
+Only the Unity-side values need an APK rebuild. Everything else is a config
+change on the Pi.
+
+| To change | Where | Rebuild APK? |
+|---|---|---|
+| Joint direction | `invert` in `servo_bridge.yaml` | no |
+| Joint zero offset | `offset` in `servo_bridge.yaml` | no |
+| Safe angle limits | `min_angle` / `max_angle` in `servo_bridge.yaml` | no |
+| Motion smoothing | `default_moving_time_sec` in `servos.yaml` | no |
+| Rest pose | `neutral_deg_by_joint` in `servos.yaml` | no |
+| Servo pulse range | `pulse_us_*_by_joint` in `servos.yaml` | no |
+| Workspace size, reach | `zPlane_cm`, `L1/L2/L3` in the scene | **yes** |
+| Motion amplitude | gain factors in `SimpleDrawingCanvas.cs` | **yes** |
+| Command rate | `SendInterval` in `SimpleDrawingCanvas.cs` | **yes** |
+
+`offset`, `invert`, `min_angle` and `max_angle` can be retuned **while the
+system is running**, which is the fastest way to converge on a good setup:
+
+```bash
+ros2 param set /servo_bridge_node offset "[0.0, 0.0, -90.0, -60.0, 0.0]"
+```
+
+Runtime changes are not persisted — copy the final values back into
+`servo_bridge.yaml` and rebuild the package.
+
+### Testing from the Unity Editor
+
+The Editor can drive the real arm without building an APK, which makes
+inverse-kinematics tuning far quicker. Tick `Allow Mouse Fallback` on
+`DrawingCanvas`, press Play, set both hand presets to `Invisible` on the
+`Editor Hand Simulator` that appears, raise `Offset` to Y ≈ 1.2 so the board is
+in view, then hold the left mouse button and drag.
+
+## 6. Diagnostics
+
+Check one layer at a time; the layer that goes quiet is the broken one.
+
+| Layer | Command | Expected |
+|---|---|---|
+| App sends | `adb logcat -s Unity \| grep -i servo` | `Sent Servo control message.` |
+| Packets arrive | `sudo tcpdump -i any -n udp port 14551` | packets from the phone |
+| Decoded | `ros2 topic echo /wicom/servo_control` | five float values |
+| Calibrated | `ros2 topic echo /pca9685_servo/command` | named joints, in degrees |
+| Servos move | `ros2 topic pub --once ...` (see §4) | the arm moves |
+
+### Common problems
+
+| Symptom | Cause |
+|---|---|
+| Arm never moves, logs look clean | `zPlane_cm` ≥ `L1+L2+L3`, workspace is zero |
+| Packets vanish although the network is fine | a stale `udp_server_node` still holds the port — `pkill -f udp_server_node` |
+| Config edited but behaviour unchanged | nodes read the installed copy: `colcon build --packages-select <pkg>` and restart |
+| `package not found` on launch | new shell has not sourced `~/ros2_ws/install/setup.bash` |
+| One joint never moves | channel map in `servos.yaml` does not match the wiring — rerun `channel_test.py --scan` |
+| A small angle sends a joint to the wrong place | the driver reads any `|angle| < 6.3` as radians; keep `min_angle ≥ 10` |
+| Arm snaps hard when servo power returns | the PCA9685 keeps its registers on Pi logic power — always kill the PWM before unplugging |
+| Camera screens are grey in the Editor | Vuplex WebView is Android-only; use `MjpegStreamViewer` instead |
+
+## 7. Bench tools
+
+All three talk straight to the hardware over I2C, so stop the arm driver first.
+
+| Tool | Purpose |
+|---|---|
+| `channel_test.py --scan` | wiggle each PCA9685 channel in turn to map servo → channel |
+| `arm_jog` | interactive per-joint jogging; computes calibration offsets |
+| `servo_spin.py -c <ch>` | run one servo continuously with live speed and on/off control |
+
+## 8. Safety
+
+- Wire the servo supply separately from the Pi; share ground, never draw servo
+  current from the Pi's 5 V pin.
+- Set `min_angle` / `max_angle` before the first powered run.
+- A servo buzzing at an end stop can burn out within a minute — cut power.
+- Never force a powered servo by hand; kill the PWM first.
+- Keep a hand on the servo power switch during the first run after any change.
