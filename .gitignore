@@ -30,10 +30,15 @@
 *.unitypackage
 *.app
 
-# ROS 2 build & install artifacts
+# ROS 2 build & install artifacts (also when nested inside a package)
 ros2_ws/build/
 ros2_ws/install/
 ros2_ws/log/
+ros2_ws/**/build/
+ros2_ws/**/install/
+ros2_ws/**/log/
+__pycache__/
+*.pyc
 
 # OS and IDE generated
 .DS_Store
