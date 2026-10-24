@@ -73,7 +73,7 @@ public class SimpleDrawingCanvas : MonoBehaviour
     public bool clampMovePerFrame = true;
 
     [Tooltip("Maximum planar movement per frame")]
-    [Min(0f)] public float maxMovePerFrameOnPlane = 0.05f; // 5cm
+    [Min(0f)] public float maxMovePerFrameOnPlane = 0.10f; // 5cm
 
     // ————— Input: Mouse/Touch and External —————
     [Header("Mouse/Touch (Fallback)")]
@@ -149,7 +149,7 @@ public class SimpleDrawingCanvas : MonoBehaviour
 
     // IK publish timer
     private float _sendTimer = 0f;
-    private const float SendInterval = 0.5f; // Limit send command every 200ms
+    private const float SendInterval = 0.2f; // Limit send command every 200ms
 
     // Save UV & last worldPoint for UI & draw
     private Vector2 _lastUV01 = new Vector2(0.5f, 0.5f);
@@ -747,9 +747,9 @@ public class SimpleDrawingCanvas : MonoBehaviour
         float deg3 = theta3 * Mathf.Rad2Deg;
 
         degBase     = 90f + (deg0 * 1.5f);
-        degShoulder = 90f - (deg1 * 1.25f);
-        degElbow    = 180f + (deg2 * 1.25f);
-        degWrist    = 150f - (deg3 * 1.25f);
+        degShoulder = 90f - (deg1 * 1.5f);
+        degElbow    = 180f + (deg2 * 1.5f);
+        degWrist    = 150f - (deg3 * 1.5f);
     }
 
 #if UNITY_EDITOR
