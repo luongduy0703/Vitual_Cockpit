@@ -1,0 +1,34 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Cau noi Unity → driver wicom_roboarm_unified
+#
+# Unity gui 5 gia tri theo thu tu:  [base, shoulder, elbow, wrist, gripper]
+# Canh tay that co 6 khop (xem wicom_roboarm/config/servos.yaml):
+#     base, shoulder, elbow, wrist_roll, wrist_pitch, pen
+#
+# Ten trong joint_names phai TRUNG voi joint_names ben servos.yaml.
+# De chuoi rong "" de BO QUA gia tri do (khong gui lenh cho khop nao ca).
+# ─────────────────────────────────────────────────────────────────────────────
+/servo_bridge_node:
+  ros__parameters:
+    input_topic: "/wicom/servo_control"
+    command_topic: "/pca9685_servo/command"
+
+    # Unity[0]=base  [1]=shoulder  [2]=elbow  [3]=wrist  [4]=gripper
+    # wrist cua Unity la goc giu but nam ngang → anh xa sang wrist_pitch.
+    # wrist_roll khong duoc dieu khien, giu nguyen vi tri hien tai.
+    # gripper: Unity hardcode 90 do → de "" neu khong muon dung toi but/kep.
+    joint_names: ["base", "shoulder", "elbow", "wrist_pitch", "pen"]
+
+    # ── HIEU CHINH CO KHI (lam theo huong dan tung buoc) ──
+    # Thu tu ap dung:  goc = Unity + offset  →  neu invert: 180 - goc  →  kep
+    #
+    # offset: chinh diem giua. Khop dang lech +15 do so voi mong muon → de -15.
+    # invert: dao chieu. Khop quay nguoc huong mong doi → de true.
+    offset: [0.0, 0.0, 0.0, 0.0, 0.0]
+    invert: [false, false, false, false, false]
+
+    # Kep an toan TRUOC khi gui xuong driver (driver van kep lai lan nua).
+    # Luu y: driver doc bat ky goc nao |goc| < 6.3 thanh RADIAN.
+    # Vi vay min_angle nen >= 7.0 de tranh hieu nham.
+    min_angle: [10.0, 10.0, 10.0, 10.0, 10.0]
+    max_angle: [170.0, 170.0, 170.0, 170.0, 170.0]

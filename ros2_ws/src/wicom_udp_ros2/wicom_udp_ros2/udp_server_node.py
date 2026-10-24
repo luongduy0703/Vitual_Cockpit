@@ -42,11 +42,12 @@ import math
 import time
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 from geometry_msgs.msg import Twist, PoseStamped
-from std_msgs.msg import Float32, Bool, Int32, UInt8
+from std_msgs.msg import Float32, Float32MultiArray, Bool, Int32, UInt8
 
 
 # ─── UAVLink Protocol Constants ────────────────────────────────────────────
@@ -172,7 +173,7 @@ class UdpServerNode(Node):
         self.pub_takeoff_cmd = self.create_publisher(
             Float32, '/wicom/cmd/takeoff', reliable_qos)
         self.pub_servo_control = self.create_publisher(
-            Float32, '/wicom/servo_control', reliable_qos)
+            Float32MultiArray, '/wicom/servo_control', reliable_qos)
         self.pub_offboard_enable = self.create_publisher(
             Bool, '/wicom/cmd/offboard_enable', reliable_qos)
         self.pub_circle_cmd = self.create_publisher(
@@ -447,7 +448,12 @@ class UdpServerNode(Node):
             f'Servo: base={servos[0]:.1f}, shoulder={servos[1]:.1f}, '
             f'elbow={servos[2]:.1f}, wrist={servos[3]:.1f}, '
             f'gripper={servos[4]:.1f}')
-        # TODO: Forward to wicom_roboarm_ros2 node via topic or service
+
+        # Forward the 5 angles to wicom_roboarm_ros2 node
+        # Order: [base, shoulder, elbow, wrist, gripper]
+        msg = Float32MultiArray()
+        msg.data = [float(s) for s in servos]
+        self.pub_servo_control.publish(msg)
 
     # ═══════════════════════════════════════════════════════════════════════
     #  SEND TELEMETRY TO UNITY
@@ -554,11 +560,13 @@ def main(args=None):
 
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
+        # ExternalShutdownException is what SIGTERM looks like from rclpy
         node.get_logger().info('Shutting down UDP Server Node...')
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

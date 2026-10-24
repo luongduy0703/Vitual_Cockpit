@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Hieu chinh canh tay robot 5-DOF  (wicom_roboarm_ros2)
+#
+# SUA FILE NAY cho khop voi canh tay that TRUOC KHI cap nguon servo.
+# Thu tu 5 phan tu trong moi mang luon la:
+#     [base, shoulder, elbow, wrist, gripper]
+# ─────────────────────────────────────────────────────────────────────────────
+/roboarm_node:
+  ros__parameters:
+
+    # ── Board PCA9685 ────────────────────────────────────────────────────────
+    i2c_bus: 1
+    i2c_address: 64        # 0x40 (kiem tra bang: i2cdetect -y 1)
+    servo_freq: 50         # Hz, servo analog thong thuong dung 50
+
+    # Kenh tren PCA9685 cho tung khop
+    channels: [0, 1, 2, 3, 4]
+
+    # ── Gioi han goc AN TOAN cho tung khop (do) ──────────────────────────────
+    # Bat dau rong, SIET LAI ngay khi thay khop nao cham cung hoac keu e e.
+    min_angle: [0.0, 0.0, 0.0, 0.0, 0.0]
+    max_angle: [180.0, 180.0, 180.0, 180.0, 180.0]
+
+    # ── Dai xung PWM (micro giay) ────────────────────────────────────────────
+    # 750-2250 la mac dinh cua thu vien: AN TOAN nhung khong quay het 180 do.
+    # SG90 / MG996R thuong can 500-2500. Noi rong TU TU, moi lan 100us,
+    # vua noi vua nghe tieng servo — servo keu o hai dau la da qua hanh trinh.
+    min_pulse: [750, 750, 750, 750, 750]
+    max_pulse: [2250, 2250, 2250, 2250, 2250]
+    actuation_range: [180, 180, 180, 180, 180]
+
+    # ── Hieu chinh chieu va diem 0 ───────────────────────────────────────────
+    # invert: dao chieu quay neu khop chay nguoc voi mong doi
+    # offset: cong them vao goc lenh (do), de chinh lech diem giua
+    invert: [false, false, false, false, false]
+    offset: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+    # ── An toan chuyen dong ──────────────────────────────────────────────────
+    # Unity chi gui 2 lenh/giay nen goc co the nhay rat xa giua 2 lenh.
+    # max_step_deg gioi han buoc nhay moi lenh (0.0 = tat gioi han).
+    max_step_deg: 0.0
+
+    # Tu the luc khoi dong: MAC DINH TAT de canh tay khong giat khi node len.
+    # Chi bat khi ban da chac tu the nay an toan voi co cau cua minh.
+    apply_default_pose: false
+    default_pose: [90.0, 90.0, 90.0, 90.0, 90.0]
+
+    # Nha servo (ngat PWM) khi tat node — servo mem ra, khong giu luc
+    release_on_shutdown: true

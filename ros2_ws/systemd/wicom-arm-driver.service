@@ -1,0 +1,21 @@
+# Driver phan cung canh tay (wicom_roboarm_unified → PCA9685).
+# Phai chay TRUOC wicom-arm.service.
+[Unit]
+Description=Virtual-Copilot-UAM arm hardware driver (PCA9685)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/ros2_ws
+Environment=HOME=/home/%i
+Environment=ROS_DOMAIN_ID=0
+ExecStart=/bin/bash -lc "source /opt/ros/humble/setup.bash && source /home/%i/ros2_ws/install/setup.bash && exec ros2 launch wicom_roboarm wicom_roboarm.launch.py"
+# Nha toan bo servo khi dung service
+ExecStopPost=/bin/bash -lc "source /opt/ros/humble/setup.bash && python3 /home/%i/ros2_ws/src/wicom_roboarm/scripts/pca9685_kill_all.py || true"
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

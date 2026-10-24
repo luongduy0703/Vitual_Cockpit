@@ -1,0 +1,20 @@
+# Cau UDP Unity <-> ROS 2 + bridge sang JointState.
+# Can driver (wicom-arm-driver) chay truoc.
+[Unit]
+Description=Virtual-Copilot-UAM UDP bridge for Unity VR
+After=network-online.target wicom-arm-driver@%i.service
+Wants=network-online.target
+Requires=wicom-arm-driver@%i.service
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/ros2_ws
+Environment=HOME=/home/%i
+Environment=ROS_DOMAIN_ID=0
+ExecStart=/bin/bash -lc "source /opt/ros/humble/setup.bash && source /home/%i/ros2_ws/install/setup.bash && exec ros2 launch wicom_roboarm_ros2 wicom_arm_full.launch.py"
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -13,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,6 +25,10 @@ setup(
     entry_points={
         'console_scripts': [
             'roboarm_node = wicom_roboarm_ros2.roboarm_node:main',
+            'servo_bridge_node = wicom_roboarm_ros2.servo_bridge_node:main',
+            'arm_jog = wicom_roboarm_ros2.arm_jog:main',
+            'channel_test = wicom_roboarm_ros2.channel_test:main',
+            'servo_spin = wicom_roboarm_ros2.servo_spin:main',
         ],
     },
 )
